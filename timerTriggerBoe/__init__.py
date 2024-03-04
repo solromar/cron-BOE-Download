@@ -44,7 +44,7 @@ def send_email(subject, body):
 
 
 boe_url = "https://boe.es"
-boe_api_sumario = boe_url + '/diario_boe/xml.php?id=BOE-S-'
+boe_api_sumario = boe_url + "/diario_boe/xml.php?id=BORME-S-"
 
 
 # --------------------------  Función descarga PDFs y subida a Blob Storage  ----------------------------------------- #
@@ -64,6 +64,15 @@ def subir_documento_a_blob(url, blob_path, content_type):
         except requests.RequestException as e:
             log_info(f"No se pudo descargar el documento {url}")
 
+def descargar_y_subir_pdfs(pdfs, destino_fecha):
+    """
+    Función para descargar y subir PDFs a Azure Blob Storage.
+    """
+    for pdf in pdfs:
+        fichero_pdf_blob_path = f"{destino_fecha}/pdfs/{os.path.basename(pdf.text)}"
+        logging.info("Descargando y subiendo: %s --> %s", boe_url + pdf.text, fichero_pdf_blob_path)
+        subir_documento_a_blob(boe_url + pdf.text, fichero_pdf_blob_path, content_type='application/pdf')            
+
 # -------------------------- Función principal ejecutada por Azure Timer Trigger ------------------------------ #
 def main(myTimer: func.TimerRequest) -> None:
     global logs
@@ -74,7 +83,7 @@ def main(myTimer: func.TimerRequest) -> None:
     logging.info("Python timer trigger function ran at %s", utc_timestamp)
 
     # para testear una fecha especifica
-    fecha_fija = datetime.datetime(2024, 3, 2)
+    fecha_fija = datetime.datetime(2024, 3, 3)
     hoy = fecha_fija.strftime("%Y%m%d")
 
     # Obtiene la fecha actual para procesar el BOE de hoy
@@ -100,23 +109,19 @@ def main(myTimer: func.TimerRequest) -> None:
         log_info("ERROR: Sumario XML erróneo o incompleto")
         return
 
-    # Descarga el contenido del sumario XML, lo procesa para encontrar y subir los PDFs mencionados en él
+    # Procesamiento del sumario XML
     xml_content = blob_client.download_blob().readall()
     try:
         xmlSumario = ET.fromstring(xml_content)
         if xmlSumario.tag == "error":
             log_info("AVISO: No existen boletines para la fecha %s" % fecha_Ymd)
+            return
 
-        else:
-            pdfs = xmlSumario.findall(".//urlPdf")
-            for pdf in pdfs:
-                fichero_pdf_blob_path = f"{destino_fecha}/pdfs/{os.path.basename(pdf.text)}"
-                logging.info("Solicitando %s --> %s", boe_url + pdf.text, fichero_pdf_blob_path)                
-                # Sube cada PDF encontrado al Blob Storage con ContentType como 'application/pdf'
-                subir_documento_a_blob(boe_url + pdf.text, fichero_pdf_blob_path, content_type='application/pdf')
-    except ET.ParseError:
-        log_info("ERROR: Sumario XML no pudo ser procesado")      
+        pdfs = xmlSumario.findall(".//urlPdf")
+        descargar_y_subir_pdfs(pdfs, destino_fecha)
+    except ET.ParseError as e:
+        log_info("ERROR: Sumario XML no pudo ser procesado")     
 
         
 # Ejemplo de cómo llamar a subir_documento_a_blob y enviar logs por correo
-    send_email(f"Resumen de la Ejecución de Azure Function Cron BOE de fecha: {fecha_Ymd}", "<br>".join(logs))
+    send_email(f"Resumen de la Ejecución de Azure Function Cron Borme de fecha: {fecha_Ymd}", "<br>".join(logs))
