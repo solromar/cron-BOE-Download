@@ -1,0 +1,12 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 14 * * 1-5",
+      "comment" : "España esta en UTC+1 en invierno y UTC+2 en verano, por lo tanto del horario que esta en schedule se ejecutará de octubre a marzo a las 13hs y de marzo a octubre a las 14hs y solo de Lunes a Viernes"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+azure-functions
+azure-search-documents 
+azure-storage-blob     
+azure-core
+requests
+sendgrid
+
